@@ -53,24 +53,29 @@ async def fetch_file(session, url):
 
 def convert_to_mp4(input_data, input_format):
     """Convert video files to .mp4 format using ffmpeg-python."""
-    input_buffer = io.BytesIO(input_data)
-    input_buffer.seek(0)
+    input_buffer = io.BytesIO(input_data)  # Create an in-memory buffer for the input video
+    input_buffer.seek(0)  # Ensure buffer pointer is at the beginning
 
     try:
+        # Use a temporary directory for storing input and output files
         with tempfile.TemporaryDirectory() as temp_dir:
             input_temp_file = os.path.join(temp_dir, "input_temp." + input_format)
             output_temp_file = os.path.join(temp_dir, "output_temp.mp4")
 
+            # Save the input data to a temporary file
             with open(input_temp_file, 'wb') as f:
                 f.write(input_data)
 
+            # Use ffmpeg-python to convert the video
             (
                 ffmpeg
                 .input(input_temp_file)
                 .output(output_temp_file, vcodec='libx264', acodec='aac', strict='experimental')
-                .run(overwrite_output=True)
+                .global_args('-y')  # Overwrite output files without asking
+                .run(quiet=True)  # Run in non-interactive mode
             )
 
+            # Read the converted file back into memory
             with open(output_temp_file, 'rb') as f:
                 output_data = f.read()
 
@@ -82,6 +87,7 @@ def convert_to_mp4(input_data, input_format):
     except Exception as e:
         print(f"Unexpected error: {str(e)}")
         return None
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a message when the command /start is issued."""
