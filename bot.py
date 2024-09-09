@@ -7,7 +7,8 @@ import re
 import os
 from urllib.parse import urlparse
 import asyncio
-from moviepy.editor import VideoFileClip  # Import moviepy for video conversion
+from moviepy.editor import VideoFileClip
+import tempfile  # Import tempfile for handling temporary files
 
 TOKEN = '7381557233:AAGOsHX_BIoranuVWO_HEYIII98LVyTiBuc'  # Replace with your actual Telegram bot token
 
@@ -54,30 +55,25 @@ def convert_to_mp4(input_data, input_format):
     input_buffer = io.BytesIO(input_data)  # Create an in-memory buffer for the input video
     input_buffer.seek(0)  # Ensure buffer pointer is at the beginning
 
-    output_buffer = io.BytesIO()  # Create an in-memory buffer to store the converted video
-    input_temp_file = "input_temp." + input_format
-    output_temp_file = "output_temp.mp4"
-
     try:
-        # Save the input data to a temporary file
-        with open(input_temp_file, 'wb') as f:
-            f.write(input_data)
+        # Use a temporary directory for storing input and output files
+        with tempfile.TemporaryDirectory() as temp_dir:
+            input_temp_file = os.path.join(temp_dir, "input_temp." + input_format)
+            output_temp_file = os.path.join(temp_dir, "output_temp.mp4")
 
-        # Convert the video using moviepy
-        clip = VideoFileClip(input_temp_file)
-        clip.write_videofile(output_temp_file, codec='libx264', audio_codec='aac')
+            # Save the input data to a temporary file
+            with open(input_temp_file, 'wb') as f:
+                f.write(input_data)
 
-        # Read the converted file back into memory
-        with open(output_temp_file, 'rb') as f:
-            output_buffer.write(f.read())
+            # Convert the video using moviepy
+            clip = VideoFileClip(input_temp_file)
+            clip.write_videofile(output_temp_file, codec='libx264', audio_codec='aac')
 
-        output_buffer.seek(0)  # Reset the buffer pointer to the beginning
+            # Read the converted file back into memory
+            with open(output_temp_file, 'rb') as f:
+                output_data = f.read()
 
-        # Clean up temporary files
-        os.remove(input_temp_file)
-        os.remove(output_temp_file)
-
-        return output_buffer.read()
+            return output_data
 
     except Exception as e:
         print(f"MoviePy error: {str(e)}")
