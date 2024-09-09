@@ -7,10 +7,11 @@ import re
 import os
 from urllib.parse import urlparse
 import asyncio
-from moviepy.editor import VideoFileClip
-import tempfile  # Import tempfile for handling temporary files
+import ffmpeg
+import tempfile
 
-TOKEN = '7381557233:AAGOsHX_BIoranuVWO_HEYIII98LVyTiBuc'  # Replace with your actual Telegram bot token
+# Fetch the token from environment variables
+TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')  # Use environment variable for the token
 
 MAX_FILE_SIZE_MB = 50
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
@@ -51,33 +52,40 @@ async def fetch_file(session, url):
         return file_data, content_type, file_size
 
 def convert_to_mp4(input_data, input_format):
-    """Convert video files to .mp4 format using moviepy."""
-    input_buffer = io.BytesIO(input_data)  # Create an in-memory buffer for the input video
-    input_buffer.seek(0)  # Ensure buffer pointer is at the beginning
+    """Convert video files to .mp4 format using ffmpeg-python."""
+    input_buffer = io.BytesIO(input_data)
+    input_buffer.seek(0)
 
     try:
-        # Use a temporary directory for storing input and output files
         with tempfile.TemporaryDirectory() as temp_dir:
             input_temp_file = os.path.join(temp_dir, "input_temp." + input_format)
             output_temp_file = os.path.join(temp_dir, "output_temp.mp4")
 
-            # Save the input data to a temporary file
             with open(input_temp_file, 'wb') as f:
                 f.write(input_data)
 
-            # Convert the video using moviepy
-            clip = VideoFileClip(input_temp_file)
-            clip.write_videofile(output_temp_file, codec='libx264', audio_codec='aac')
+            (
+                ffmpeg
+                .input(input_temp_file)
+                .output(output_temp_file, vcodec='libx264', acodec='aac', strict='experimental')
+                .run(overwrite_output=True)
+            )
 
-            # Read the converted file back into memory
             with open(output_temp_file, 'rb') as f:
                 output_data = f.read()
 
             return output_data
 
-    except Exception as e:
-        print(f"MoviePy error: {str(e)}")
+    except ffmpeg.Error as e:
+        print(f"FFmpeg error: {e.stderr.decode()}")
         return None
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+        return None
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send a message when the command /start is issued."""
+    await update.message.reply_text("Hello! The bot is running and ready to receive commands.")
 
 async def start_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start the upload session for the user."""
@@ -100,19 +108,16 @@ async def stop_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle messages containing file links or a .txt file during an active upload session."""
     if update.message is None:
-        return  # Return if update does not contain a message
+        return
 
     chat_id = update.message.chat_id
     if chat_id in upload_sessions:
-        # Check if the message contains a document (e.g., a .txt file)
         if update.message.document:
             document = update.message.document
             if document.mime_type == 'text/plain':
-                # Download the .txt file
                 file = await context.bot.get_file(document.file_id)
                 file_content = await file.download_as_bytearray()
 
-                # Decode and split links
                 try:
                     links = file_content.decode('utf-8').splitlines()
                     valid_links = [link.strip() for link in links if re.match(r'https?://', link.strip())]
@@ -129,10 +134,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 await update.message.reply_text("Only .txt files are supported for upload.")
         else:
-            # Process as text message containing URLs
             media_links = update.message.text.split()
-
-            # Validate that the message contains URLs
             valid_links = [link.strip() for link in media_links if re.match(r'https?://', link.strip())]
             if not valid_links:
                 await update.message.reply_text("Please enter valid URL(s).")
@@ -146,9 +148,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await asyncio.sleep(5)
         await update.message.delete()
         
-        # Process the collected links
         if len(upload_sessions[chat_id]) > 0:
-            # Send the starting message and delete it after 5 seconds
             starting_message = await update.message.reply_text("Starting Uploading...")
             await asyncio.sleep(5)
             await starting_message.delete()
@@ -171,7 +171,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             file_extension = get_file_extension(link, content_type)
                             media_filename = sanitize_filename(link.split("/")[-1])
 
-                            # Convert video files to mp4 if needed
                             if file_extension in ['.mov', '.gif', '.webp', '.webm']:
                                 file_data = convert_to_mp4(file_data, file_extension.lstrip('.'))
                                 if file_data is None:
@@ -181,15 +180,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             else:
                                 media_filename += file_extension
 
-                            # Check if the final file is non-empty
                             if not file_data or len(file_data) == 0:
                                 await context.bot.send_message(chat_id=chat_id, text=f"File from {link} is empty after processing and cannot be uploaded.")
                                 continue
 
                             media_file = InputFile(io.BytesIO(file_data), filename=media_filename)
-
-                            # Send the media file to the chat or channel
-                            target_chat_id = channel_ids.get(chat_id, chat_id)  # Use channel ID if set, else use user's chat ID
+                            target_chat_id = channel_ids.get(chat_id, chat_id)
                             await context.bot.send_document(chat_id=target_chat_id, document=media_file)
                             print(f"Successfully sent the file: {media_filename} to chat ID: {target_chat_id}")
 
@@ -197,10 +193,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             await context.bot.send_message(chat_id=chat_id, text=f"Failed to upload {link}: {e}")
                             print(f"Error occurred: {e}")
 
-            # Clear the upload session after processing
             upload_sessions[chat_id] = []
 
-            # Send a completion message and delete it after 20 seconds
             completion_message = await context.bot.send_message(chat_id=chat_id, text="All uploads completed!")
             await asyncio.sleep(20)
             await completion_message.delete()
@@ -209,33 +203,24 @@ async def set_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Set or check the channel ID for uploading files."""
     chat_id = update.message.chat_id
     if len(context.args) == 0:
-        # No arguments provided, check if a channel is already set
         if chat_id in channel_ids:
             await update.message.reply_text(f"The current channel is set to `{channel_ids[chat_id]}`. Please share the txt or links to upload the media files.")
         else:
             await update.message.reply_text("No channel is currently set. Please provide the channel ID or username after /set_channel.")
     elif len(context.args) == 1:
-        # Set the channel ID
         channel_id = context.args[0]
         channel_ids[chat_id] = channel_id
         await update.message.reply_text(f"Channel set to `{channel_id}`. Share your file now.")
     else:
         await update.message.reply_text("Usage: /set_channel <channel_id>")
 
-# Set up the bot and command handlers
 if __name__ == '__main__':
     application = ApplicationBuilder().token(TOKEN).build()
 
-    # Command to start the upload session
+    application.add_handler(CommandHandler('start', start))
     application.add_handler(CommandHandler('upload', start_upload))
-
-    # Command to end the upload session
     application.add_handler(CommandHandler('stop', stop_upload))
-
-    # Command to set the channel ID
     application.add_handler(CommandHandler('set_channel', set_channel))
-
-    # Handler for messages containing file links or a .txt file
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND | filters.Document.MimeType("text/plain"), handle_message))
 
     application.run_polling()
