@@ -70,7 +70,18 @@ def convert_to_mp4(input_data, input_format):
             (
                 ffmpeg
                 .input(input_temp_file)
-                .output(output_temp_file, vcodec='libx264', acodec='aac', strict='experimental')
+                .output(
+                    output_temp_file,
+                    vcodec='libx264',
+                    acodec='aac',
+                    strict='experimental',
+                    video_bitrate='1000k',  # Adjust bitrate to control quality
+                    audio_bitrate='128k',  # Adjust audio bitrate
+                    r=30,  # Set frame rate to 30 FPS
+                    ar=44100,  # Set audio sampling rate to 44100 Hz
+                    pix_fmt='yuv420p',  # Use a standard pixel format
+                    movflags='faststart'  # Optimize for web streaming
+                )
                 .global_args('-y')  # Overwrite output files without asking
                 .run(quiet=True)  # Run in non-interactive mode
             )
@@ -87,6 +98,7 @@ def convert_to_mp4(input_data, input_format):
     except Exception as e:
         print(f"Unexpected error: {str(e)}")
         return None
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a message when the command /start is issued."""
