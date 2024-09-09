@@ -7,7 +7,7 @@ import re
 import os
 from urllib.parse import urlparse
 import asyncio
-import ffmpeg  # Import ffmpeg for video conversion
+import ffmpeg
 
 TOKEN = '7381557233:AAGOsHX_BIoranuVWO_HEYIII98LVyTiBuc'  # Replace with your actual Telegram bot token
 
@@ -67,6 +67,12 @@ def convert_to_mp4(input_data, input_format):
         output, _ = process.communicate(input=input_buffer.read())
         output_buffer.write(output)
         output_buffer.seek(0)  # Reset the buffer pointer to the beginning
+
+        # Check if output is non-empty
+        if output_buffer.getbuffer().nbytes == 0:
+            print("FFmpeg output is empty")
+            return None
+
         return output_buffer.read()
 
     except ffmpeg.Error as e:
@@ -154,6 +160,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         try:
                             file_data, content_type, file_size = await fetch_file(session, link)
 
+                            if file_size == 0:
+                                await context.bot.send_message(chat_id=chat_id, text=f"File from {link} is empty and cannot be uploaded.")
+                                continue
+
                             if file_size > MAX_FILE_SIZE_BYTES:
                                 await context.bot.send_message(chat_id=chat_id, text=f"File from {link} is larger than 50 MB and cannot be uploaded.")
                                 continue
@@ -170,6 +180,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 media_filename += '.mp4'
                             else:
                                 media_filename += file_extension
+
+                            # Check if the final file is non-empty
+                            if not file_data or len(file_data) == 0:
+                                await context.bot.send_message(chat_id=chat_id, text=f"File from {link} is empty after processing and cannot be uploaded.")
+                                continue
 
                             media_file = InputFile(io.BytesIO(file_data), filename=media_filename)
 
