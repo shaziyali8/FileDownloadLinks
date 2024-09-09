@@ -180,8 +180,8 @@ if __name__ == '__main__':
     # Command to end the upload session
     application.add_handler(CommandHandler('stop', stop_upload))
 
-    # Command to set the channel ID
-    application.add_handler(CommandHandler('set_channel', set_channel, pass_args=True))
+    # Command to set the channel ID (without pass_args)
+    application.add_handler(CommandHandler('set_channel', set_channel))
 
     # Handler for messages containing file links or a .txt file
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND | filters.Document.MIME_TYPE("text/plain"), handle_message))
