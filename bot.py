@@ -7,6 +7,7 @@ import re
 import os
 from urllib.parse import urlparse
 import asyncio
+import ffmpeg  # Import ffmpeg for video conversion
 
 TOKEN = '7381557233:AAGOsHX_BIoranuVWO_HEYIII98LVyTiBuc'  # Replace with your actual Telegram bot token
 
@@ -45,6 +46,17 @@ async def fetch_file(session, url):
         file_size = int(response.headers.get('Content-Length', 0))
         file_data = await response.read()
         return file_data, content_type, file_size
+
+def convert_to_mp4(input_data, input_format):
+    """Convert video files to .mp4 format."""
+    output_buffer = io.BytesIO()  # Create an in-memory buffer to store the converted video
+    input_buffer = io.BytesIO(input_data)  # Create an in-memory buffer for the input video
+
+    # Use ffmpeg to convert the video to mp4 format
+    ffmpeg.input('pipe:0', format=input_format).output('pipe:1', format='mp4').run(input=input_buffer, output=output_buffer)
+    
+    output_buffer.seek(0)  # Reset the buffer pointer to the beginning
+    return output_buffer.read()
 
 async def start_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start the upload session for the user."""
@@ -132,7 +144,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 continue
 
                             file_extension = get_file_extension(link, content_type)
-                            media_filename = sanitize_filename(link.split("/")[-1]) + file_extension
+                            media_filename = sanitize_filename(link.split("/")[-1])
+
+                            # Convert video files to mp4 if needed
+                            if file_extension in ['.mov', '.gif', '.webp']:
+                                file_data = convert_to_mp4(file_data, file_extension.lstrip('.'))
+                                media_filename += '.mp4'
+                            else:
+                                media_filename += file_extension
 
                             media_file = InputFile(io.BytesIO(file_data), filename=media_filename)
 
@@ -180,7 +199,7 @@ if __name__ == '__main__':
     # Command to end the upload session
     application.add_handler(CommandHandler('stop', stop_upload))
 
-    # Command to set the channel ID (without pass_args)
+    # Command to set the channel ID
     application.add_handler(CommandHandler('set_channel', set_channel))
 
     # Handler for messages containing file links or a .txt file
