@@ -184,8 +184,6 @@ if __name__ == '__main__':
     application.add_handler(CommandHandler('set_channel', set_channel))
 
     # Handler for messages containing file links or a .txt file
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND | filters.Document.MimeType("text/plain"), handle_message))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND | filters.Document.MimeType("text/plain"), handle_message))
 
     application.run_polling()
-
-
