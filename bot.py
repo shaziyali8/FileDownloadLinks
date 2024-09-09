@@ -1,3 +1,5 @@
+
+
 import telegram
 from telegram import Update, InputFile
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, CommandHandler, ContextTypes
@@ -50,20 +52,28 @@ async def fetch_file(session, url):
         return file_data, content_type, file_size
 
 def convert_to_mp4(input_data, input_format):
-    """Convert video files to .mp4 format."""
+    """Convert video files to .mp4 format using ffmpeg."""
     input_buffer = io.BytesIO(input_data)  # Create an in-memory buffer for the input video
     output_buffer = io.BytesIO()  # Create an in-memory buffer to store the converted video
 
-    # Use ffmpeg to convert the video to mp4 format
-    process = (
-        ffmpeg
-        .input('pipe:0', format=input_format)  # Use pipe as input
-        .output('pipe:1', format='mp4')  # Output as mp4 format
-        .run(input=input_buffer, output=output_buffer, capture_stdout=True, capture_stderr=True)
-    )
-    
-    output_buffer.seek(0)  # Reset the buffer pointer to the beginning
-    return output_buffer.read()
+    try:
+        # Use ffmpeg to convert the video to mp4 format
+        process = (
+            ffmpeg
+            .input('pipe:0', format=input_format)  # Use pipe as input
+            .output('pipe:1', format='mp4')  # Output as mp4 format
+            .run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
+        )
+
+        # Write input data to stdin and read output data from stdout
+        output, _ = process.communicate(input=input_buffer.read())
+        output_buffer.write(output)
+        output_buffer.seek(0)  # Reset the buffer pointer to the beginning
+        return output_buffer.read()
+
+    except ffmpeg.Error as e:
+        print(f"FFmpeg error: {e.stderr.decode()}")
+        return None
 
 async def start_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start the upload session for the user."""
@@ -156,6 +166,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             # Convert video files to mp4 if needed
                             if file_extension in ['.mov', '.gif', '.webp', '.webm']:
                                 file_data = convert_to_mp4(file_data, file_extension.lstrip('.'))
+                                if file_data is None:
+                                    await context.bot.send_message(chat_id=chat_id, text=f"Conversion failed for {link}.")
+                                    continue
                                 media_filename += '.mp4'
                             else:
                                 media_filename += file_extension
@@ -213,3 +226,4 @@ if __name__ == '__main__':
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND | filters.Document.MimeType("text/plain"), handle_message))
 
     application.run_polling()
+
