@@ -7,7 +7,7 @@ import re
 import os
 from urllib.parse import urlparse
 import asyncio
-import ffmpeg
+from moviepy.editor import VideoFileClip  # Import moviepy for video conversion
 
 TOKEN = '7381557233:AAGOsHX_BIoranuVWO_HEYIII98LVyTiBuc'  # Replace with your actual Telegram bot token
 
@@ -50,33 +50,37 @@ async def fetch_file(session, url):
         return file_data, content_type, file_size
 
 def convert_to_mp4(input_data, input_format):
-    """Convert video files to .mp4 format using ffmpeg."""
+    """Convert video files to .mp4 format using moviepy."""
     input_buffer = io.BytesIO(input_data)  # Create an in-memory buffer for the input video
+    input_buffer.seek(0)  # Ensure buffer pointer is at the beginning
+
     output_buffer = io.BytesIO()  # Create an in-memory buffer to store the converted video
+    input_temp_file = "input_temp." + input_format
+    output_temp_file = "output_temp.mp4"
 
     try:
-        # Use ffmpeg to convert the video to mp4 format
-        process = (
-            ffmpeg
-            .input('pipe:0', format=input_format)  # Use pipe as input
-            .output('pipe:1', format='mp4')  # Output as mp4 format
-            .run_async(pipe_stdin=True, pipe_stdout=True, pipe_stderr=True)
-        )
+        # Save the input data to a temporary file
+        with open(input_temp_file, 'wb') as f:
+            f.write(input_data)
 
-        # Write input data to stdin and read output data from stdout
-        output, _ = process.communicate(input=input_buffer.read())
-        output_buffer.write(output)
+        # Convert the video using moviepy
+        clip = VideoFileClip(input_temp_file)
+        clip.write_videofile(output_temp_file, codec='libx264', audio_codec='aac')
+
+        # Read the converted file back into memory
+        with open(output_temp_file, 'rb') as f:
+            output_buffer.write(f.read())
+
         output_buffer.seek(0)  # Reset the buffer pointer to the beginning
 
-        # Check if output is non-empty
-        if output_buffer.getbuffer().nbytes == 0:
-            print("FFmpeg output is empty")
-            return None
+        # Clean up temporary files
+        os.remove(input_temp_file)
+        os.remove(output_temp_file)
 
         return output_buffer.read()
 
-    except ffmpeg.Error as e:
-        print(f"FFmpeg error: {e.stderr.decode()}")
+    except Exception as e:
+        print(f"MoviePy error: {str(e)}")
         return None
 
 async def start_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
