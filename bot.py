@@ -1,5 +1,3 @@
-
-
 import telegram
 from telegram import Update, InputFile
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, CommandHandler, ContextTypes
@@ -226,4 +224,3 @@ if __name__ == '__main__':
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND | filters.Document.MimeType("text/plain"), handle_message))
 
     application.run_polling()
-
