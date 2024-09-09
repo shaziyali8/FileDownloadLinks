@@ -36,6 +36,8 @@ def get_file_extension(url: str, content_type: str) -> str:
         return '.gif'
     elif 'image/webp' in content_type:
         return '.webp'
+    elif 'video/webm' in content_type:
+        return '.webm'
     return os.path.splitext(urlparse(url).path)[1]
 
 async def fetch_file(session, url):
@@ -49,11 +51,16 @@ async def fetch_file(session, url):
 
 def convert_to_mp4(input_data, input_format):
     """Convert video files to .mp4 format."""
-    output_buffer = io.BytesIO()  # Create an in-memory buffer to store the converted video
     input_buffer = io.BytesIO(input_data)  # Create an in-memory buffer for the input video
+    output_buffer = io.BytesIO()  # Create an in-memory buffer to store the converted video
 
     # Use ffmpeg to convert the video to mp4 format
-    ffmpeg.input('pipe:0', format=input_format).output('pipe:1', format='mp4').run(input=input_buffer, output=output_buffer)
+    process = (
+        ffmpeg
+        .input('pipe:0', format=input_format)  # Use pipe as input
+        .output('pipe:1', format='mp4')  # Output as mp4 format
+        .run(input=input_buffer, output=output_buffer, capture_stdout=True, capture_stderr=True)
+    )
     
     output_buffer.seek(0)  # Reset the buffer pointer to the beginning
     return output_buffer.read()
@@ -147,7 +154,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             media_filename = sanitize_filename(link.split("/")[-1])
 
                             # Convert video files to mp4 if needed
-                            if file_extension in ['.mov', '.gif', '.webp']:
+                            if file_extension in ['.mov', '.gif', '.webp', '.webm']:
                                 file_data = convert_to_mp4(file_data, file_extension.lstrip('.'))
                                 media_filename += '.mp4'
                             else:
