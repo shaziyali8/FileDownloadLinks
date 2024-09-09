@@ -88,7 +88,6 @@ def convert_to_mp4(input_data, input_format):
         print(f"Unexpected error: {str(e)}")
         return None
 
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a message when the command /start is issued."""
     await update.message.reply_text("Hello! The bot is running and ready to receive commands.")
@@ -177,12 +176,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             file_extension = get_file_extension(link, content_type)
                             media_filename = sanitize_filename(link.split("/")[-1])
 
+                            # Convert video files to mp4 if needed
                             if file_extension in ['.mov', '.gif', '.webp', '.webm']:
                                 file_data = convert_to_mp4(file_data, file_extension.lstrip('.'))
                                 if file_data is None:
                                     await context.bot.send_message(chat_id=chat_id, text=f"Conversion failed for {link}.")
                                     continue
-                                media_filename += '.mp4'
+                                # Ensure the final filename ends with .mp4
+                                media_filename = os.path.splitext(media_filename)[0] + '.mp4'
                             else:
                                 media_filename += file_extension
 
