@@ -5,17 +5,14 @@ import aiohttp
 import io
 import re
 import os
-import asyncio
-import time
 from urllib.parse import urlparse
+import asyncio
 
 # Fetch the token from environment variables
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')  # Use environment variable for the token
 
 MAX_FILE_SIZE_MB = 50
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
-MAX_RETRIES = 3  # Maximum retries for sending messages
-RETRY_DELAY = 5  # Initial retry delay in seconds
 
 # Dictionary to keep track of user upload sessions and channel IDs
 upload_sessions = {}
@@ -51,25 +48,6 @@ async def fetch_file(session, url):
         file_size = int(response.headers.get('Content-Length', 0))
         file_data = await response.read()
         return file_data, content_type, file_size
-
-async def send_with_retry(send_function, *args, **kwargs):
-    """Retry sending messages to handle timeouts and rate limits."""
-    for attempt in range(MAX_RETRIES):
-        try:
-            await send_function(*args, **kwargs)
-            return
-        except telegram.error.TimedOut:
-            if attempt < MAX_RETRIES - 1:
-                print("Timed out, retrying...")
-                await asyncio.sleep(RETRY_DELAY * (2 ** attempt))  # Exponential backoff
-            else:
-                print("Failed to send message due to timeout.")
-        except telegram.error.RetryAfter as e:
-            print(f"Flood control exceeded. Retry after {e.retry_after} seconds.")
-            await asyncio.sleep(e.retry_after)
-        except Exception as e:
-            print(f"Failed to send message: {e}")
-            break
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a message when the command /start is issued."""
@@ -149,11 +127,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             file_data, content_type, file_size = await fetch_file(session, link)
 
                             if file_size == 0:
-                                await send_with_retry(context.bot.send_message, chat_id=chat_id, text=f"File from {link} is empty and cannot be uploaded.")
+                                await context.bot.send_message(chat_id=chat_id, text=f"File from {link} is empty and cannot be uploaded.")
                                 continue
 
                             if file_size > MAX_FILE_SIZE_BYTES:
-                                await send_with_retry(context.bot.send_message, chat_id=chat_id, text=f"File from {link} is larger than 50 MB and cannot be uploaded.")
+                                await context.bot.send_message(chat_id=chat_id, text=f"File from {link} is larger than 50 MB and cannot be uploaded.")
                                 continue
 
                             file_extension = get_file_extension(link, content_type)
@@ -167,16 +145,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             
                             # Check file type and use the appropriate send method
                             if file_extension in ['.mp4', '.mov', '.webm']:
-                                await send_with_retry(context.bot.send_video, chat_id=target_chat_id, video=media_file, filename=media_filename, supports_streaming=True)
+                                await context.bot.send_video(chat_id=target_chat_id, video=media_file, filename=media_filename, supports_streaming=True)
                             elif file_extension in ['.jpg', '.jpeg', '.png']:
-                                await send_with_retry(context.bot.send_photo, chat_id=target_chat_id, photo=media_file, filename=media_filename)
+                                await context.bot.send_photo(chat_id=target_chat_id, photo=media_file, filename=media_filename)
                             else:
-                                await send_with_retry(context.bot.send_document, chat_id=target_chat_id, document=media_file, filename=media_filename)
+                                await context.bot.send_document(chat_id=target_chat_id, document=media_file, filename=media_filename)
 
                             print(f"Successfully sent the file: {media_filename} to chat ID: {target_chat_id}")
 
                         except Exception as e:
-                            await send_with_retry(context.bot.send_message, chat_id=chat_id, text=f"Failed to upload {link}: {e}")
+                            await context.bot.send_message(chat_id=chat_id, text=f"Failed to upload {link}: {e}")
                             print(f"Error occurred: {e}")
 
             upload_sessions[chat_id] = []
