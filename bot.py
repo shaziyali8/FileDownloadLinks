@@ -5,6 +5,7 @@ import aiohttp
 import io
 import re
 import os
+import time
 from urllib.parse import urlparse
 import asyncio
 
@@ -145,10 +146,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             
                             # Check file type and use the appropriate send method
                             if file_extension in ['.mp4', '.mov', '.webm']:
+                                time.sleep(2)  # Adding a delay to prevent hitting rate limits
                                 await context.bot.send_video(chat_id=target_chat_id, video=media_file, filename=media_filename, supports_streaming=True)
                             elif file_extension in ['.jpg', '.jpeg', '.png']:
+                                time.sleep(2)
                                 await context.bot.send_photo(chat_id=target_chat_id, photo=media_file, filename=media_filename)
                             else:
+                                time.sleep(2)
                                 await context.bot.send_document(chat_id=target_chat_id, document=media_file, filename=media_filename)
 
                             print(f"Successfully sent the file: {media_filename} to chat ID: {target_chat_id}")
