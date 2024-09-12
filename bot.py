@@ -129,7 +129,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     link = link.strip()
                     if link:
                         try:
-                            # Encode the URL before fetching
+                            # Ensure the URL is full and correctly encoded
                             encoded_link = encode_url(link)
 
                             # Fetch the file using the encoded URL
