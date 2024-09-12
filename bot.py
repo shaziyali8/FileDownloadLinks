@@ -6,7 +6,7 @@ import io
 import re
 import os
 import time
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote
 import asyncio
 
 # Fetch the token from environment variables
@@ -40,6 +40,10 @@ def get_file_extension(url: str, content_type: str) -> str:
     elif 'video/webm' in content_type:
         return '.webm'
     return os.path.splitext(urlparse(url).path)[1]
+
+def encode_url(url: str) -> str:
+    """Encode the URL to make it safe for requests."""
+    return quote(url, safe='/:?=&')
 
 async def fetch_file(session, url):
     """Fetch the file asynchronously and return its content and size."""
@@ -125,7 +129,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     link = link.strip()
                     if link:
                         try:
-                            file_data, content_type, file_size = await fetch_file(session, link)
+                            # Encode the URL before fetching
+                            encoded_link = encode_url(link)
+
+                            # Fetch the file using the encoded URL
+                            file_data, content_type, file_size = await fetch_file(session, encoded_link)
 
                             if file_size == 0:
                                 await context.bot.send_message(chat_id=chat_id, text=f"File from {link} is empty and cannot be uploaded.")
