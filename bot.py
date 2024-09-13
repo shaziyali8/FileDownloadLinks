@@ -167,39 +167,17 @@ async def set_channel(event):
     """Set or check the channel ID for uploading files."""
     chat_id = event.chat_id
     args = event.message.message.split()
-
-    # Check if the command has no additional arguments
     if len(args) == 1:
-        # No arguments provided; check if a channel is set
         if chat_id in channel_ids:
-            channel_id = channel_ids[chat_id]
-            try:
-                # Fetch the channel entity using the channel ID
-                channel_info = await client.get_entity(int(channel_id) if channel_id.isdigit() else channel_id)
-                channel_name = channel_info.title
-                await event.respond(f"The current channel is set to `{channel_name}` (ID: `{channel_id}`).")
-            except Exception as e:
-                await event.respond(f"Unable to fetch channel name: {e}. Ensure the bot is added to the channel and has appropriate permissions.")
+            await event.respond(f"The current channel is set to `{channel_ids[chat_id]}`. Please share the txt or links to upload the media files.")
         else:
             await event.respond("No channel is currently set. Please provide the channel ID or username after /set_channel.")
     elif len(args) == 2:
-        # Command with one argument; set the channel ID
         channel_id = args[1]
         channel_ids[chat_id] = channel_id
-        try:
-            # Fetch the channel entity using the channel ID
-            entity = await client.get_entity(int(channel_id) if channel_id.isdigit() else channel_id)
-            if entity:
-                channel_name = entity.title if hasattr(entity, 'title') else entity.username
-                await event.respond(f"Channel set to `{channel_name}` (ID: `{channel_id}`). Share your file now.")
-            else:
-                await event.respond("Could not find the channel. Make sure the channel is public or the bot is added as a member.")
-        except Exception as e:
-            await event.respond(f"Unable to fetch channel name: {e}. Ensure the bot is added to the channel and has appropriate permissions.")
+        await event.respond(f"Channel set to `{channel_id}`. Share your file now.")
     else:
         await event.respond("Usage: /set_channel <channel_id>")
-
-
 
 def main():
     client.run_until_disconnected()
