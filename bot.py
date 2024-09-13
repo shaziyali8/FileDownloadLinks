@@ -7,8 +7,8 @@ import time
 from urllib.parse import urlparse, quote
 
 # Fetch the token and API credentials from environment variables
-API_ID = int(os.getenv('28178887'))
-API_HASH = os.getenv('de83c8241371bb0a468fe54e70195a16')
+API_ID = int(os.getenv('TELEGRAM_API_ID'))
+API_HASH = os.getenv('TELEGRAM_API_HASH')
 BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
 MAX_FILE_SIZE_MB = 50
