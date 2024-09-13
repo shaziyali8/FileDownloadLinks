@@ -174,12 +174,12 @@ async def set_channel(event):
         if chat_id in channel_ids:
             channel_id = channel_ids[chat_id]
             try:
-                # Fetch the channel name using the channel ID
-                channel_info = await client.get_entity(channel_id)
+                # Fetch the channel entity using the channel ID
+                channel_info = await client.get_entity(int(channel_id) if channel_id.isdigit() else channel_id)
                 channel_name = channel_info.title
                 await event.respond(f"The current channel is set to `{channel_name}` (ID: `{channel_id}`).")
             except Exception as e:
-                await event.respond(f"Unable to fetch channel name: {e}")
+                await event.respond(f"Unable to fetch channel name: {e}. Ensure the bot is added to the channel and has appropriate permissions.")
         else:
             await event.respond("No channel is currently set. Please provide the channel ID or username after /set_channel.")
     elif len(args) == 2:
@@ -187,14 +187,18 @@ async def set_channel(event):
         channel_id = args[1]
         channel_ids[chat_id] = channel_id
         try:
-            # Fetch the channel name using the channel ID
-            channel_info = await client.get_entity(channel_id)
-            channel_name = channel_info.title
-            await event.respond(f"Channel set to `{channel_name}` (ID: `{channel_id}`). Share your file now.")
+            # Fetch the channel entity using the channel ID
+            entity = await client.get_entity(int(channel_id) if channel_id.isdigit() else channel_id)
+            if entity:
+                channel_name = entity.title if hasattr(entity, 'title') else entity.username
+                await event.respond(f"Channel set to `{channel_name}` (ID: `{channel_id}`). Share your file now.")
+            else:
+                await event.respond("Could not find the channel. Make sure the channel is public or the bot is added as a member.")
         except Exception as e:
-            await event.respond(f"Unable to fetch channel name: {e}")
+            await event.respond(f"Unable to fetch channel name: {e}. Ensure the bot is added to the channel and has appropriate permissions.")
     else:
         await event.respond("Usage: /set_channel <channel_id>")
+
 
 
 def main():
